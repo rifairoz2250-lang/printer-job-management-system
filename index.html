@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Printer Job Management System | C Queue FIFO</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">🖨️</div>
+        <div>
+          <h1>Printer Job Management System</h1>
+          <p class="subtitle">College PBL Project • Array-Based Queue Data Structure in C (FIFO)</p>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="badge badge-c">Pure C Core Engine</span>
+        <span class="badge badge-status" id="connection-badge">
+          <span class="pulse-dot"></span> C Backend: Active
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard-container">
+
+    <!-- Global Alert / Notification Toast -->
+    <div id="alert-banner" class="alert-banner hidden">
+      <div class="alert-icon" id="alert-icon">ℹ️</div>
+      <div class="alert-content">
+        <div class="alert-title" id="alert-title">Notification</div>
+        <div class="alert-message" id="alert-message">Message text here</div>
+      </div>
+      <button class="alert-close" onclick="closeAlert()">&times;</button>
+    </div>
+
+    <!-- Metrics Cards Row -->
+    <section class="metrics-grid">
+      <!-- Metric 1: Pending Jobs Counter -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">Pending Print Jobs</span>
+          <span class="metric-icon">📑</span>
+        </div>
+        <div class="metric-value-row">
+          <span class="metric-value" id="count-pending">0</span>
+          <span class="metric-limit">/ <span id="capacity-val">10</span> Max</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="capacity-bar" style="width: 0%;"></div>
+        </div>
+        <div class="metric-footer" id="capacity-text">Queue buffer is completely empty</div>
+      </div>
+
+      <!-- Metric 2: Next in Line (FRONT) -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">Front Job (Next to Print)</span>
+          <span class="metric-icon">🎯</span>
+        </div>
+        <div class="metric-highlight" id="front-job-display">
+          <span class="text-muted">No jobs in queue</span>
+        </div>
+        <div class="metric-footer">
+          <span class="fifo-tag">FIFO FRONT (Index: <span id="front-index-val">-1</span>)</span>
+        </div>
+      </div>
+
+      <!-- Metric 3: Last Added (REAR) -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">Rear Job (Last Enqueued)</span>
+          <span class="metric-icon">📥</span>
+        </div>
+        <div class="metric-highlight" id="rear-job-display">
+          <span class="text-muted">No jobs in queue</span>
+        </div>
+        <div class="metric-footer">
+          <span class="fifo-tag">FIFO REAR (Index: <span id="rear-index-val">-1</span>)</span>
+        </div>
+      </div>
+
+      <!-- Metric 4: Lifetime Printed -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">Print Statistics</span>
+          <span class="metric-icon">📊</span>
+        </div>
+        <div class="stats-mini-grid">
+          <div>
+            <div class="mini-label">Printed</div>
+            <div class="mini-val text-success" id="stat-printed">0</div>
+          </div>
+          <div>
+            <div class="mini-label">Cancelled</div>
+            <div class="mini-val text-danger" id="stat-cancelled">0</div>
+          </div>
+        </div>
+        <div class="metric-footer" id="last-printed-footer">No document printed yet</div>
+      </div>
+    </section>
+
+    <!-- Visual FIFO Queue Representation -->
+    <section class="card queue-visual-card">
+      <div class="card-header">
+        <div>
+          <h2>Visual Queue Demonstration (FIFO Data Flow)</h2>
+          <p class="card-desc">Contiguous array memory layout: Elements enter at <strong>REAR</strong> and leave from <strong>FRONT</strong>.</p>
+        </div>
+        <div class="queue-legend">
+          <span class="legend-item"><span class="legend-swatch swatch-front"></span> Front (Index 0)</span>
+          <span class="legend-item"><span class="legend-swatch swatch-occupied"></span> In Queue</span>
+          <span class="legend-item"><span class="legend-swatch swatch-rear"></span> Rear</span>
+          <span class="legend-item"><span class="legend-swatch swatch-empty"></span> Empty Slot</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="flow-indicators">
+          <span class="flow-arrow flow-left">⬅️ Dequeue (Print Next)</span>
+          <span class="flow-arrow flow-right">Enqueue (New Jobs) ➡️</span>
+        </div>
+        <div class="slots-track" id="queue-slots-track">
+          <!-- Dynamic array slots rendered by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Column Action Section: Add Job & Queue Controls -->
+    <div class="action-grid">
+      
+      <!-- Feature 1: Add Print Job (Enqueue) Form -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2>1. Add New Print Job</h2>
+            <p class="card-desc">Submits a document to the rear of the FIFO print queue.</p>
+          </div>
+          <span class="badge badge-op">enqueue()</span>
+        </div>
+        <div class="card-body">
+          <form id="add-job-form" onsubmit="handleAddJob(event)">
+            <div class="form-group">
+              <label for="doc-name-input">Document Name <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="doc-name-input" 
+                class="form-control" 
+                placeholder="e.g., Final_Project_Report.pdf" 
+                maxlength="60" 
+                required
+              >
+              <span class="form-hint">Supports .pdf, .docx, .txt, .c, etc.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="pages-input">Page Count <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="pages-input" 
+                class="form-control" 
+                value="5" 
+                min="1" 
+                max="500" 
+                required
+              >
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btn-add-job">
+              <span class="btn-icon">➕</span> Add Job to Queue
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Quick Action Controls: Print Next (Dequeue) & Cancel Job -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2>2. Queue Controls & Operations</h2>
+            <p class="card-desc">Execute FIFO print execution and manage individual jobs.</p>
+          </div>
+          <span class="badge badge-op">dequeue() / cancel()</span>
+        </div>
+        <div class="card-body controls-flex">
+          
+          <!-- Feature 3: Print Next Job -->
+          <div class="control-box control-box-print">
+            <div class="control-text">
+              <h3>Print Next Job</h3>
+              <p>Dequeues the oldest pending document waiting at the <strong>FRONT</strong> according to strict FIFO order.</p>
+            </div>
+            <button class="btn btn-success btn-lg" id="btn-print-next" onclick="handlePrintNext()">
+              <span class="btn-icon">🖨️</span> Print Next Job
+            </button>
+          </div>
+
+          <div class="divider"><span>OR</span></div>
+
+          <!-- Feature 4: Cancel Print Job -->
+          <div class="control-box">
+            <div class="control-text">
+              <h3>Cancel Specific Job</h3>
+              <p>Enter the unique Job ID to remove that job from the queue and shift remaining jobs forward.</p>
+            </div>
+            <form id="cancel-job-form" class="inline-form" onsubmit="handleCancelJob(event)">
+              <input 
+                type="number" 
+                id="cancel-job-id" 
+                class="form-control" 
+                placeholder="Enter Job ID (e.g. 1001)" 
+                min="1" 
+                required
+              >
+              <button type="submit" class="btn btn-danger" id="btn-cancel-job">
+                <span class="btn-icon">🗑️</span> Cancel Job
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Feature 2: Pending Jobs Table Section -->
+    <section class="card table-card">
+      <div class="card-header table-header-flex">
+        <div>
+          <h2>3. Pending Jobs Queue</h2>
+          <p class="card-desc">Live table of all jobs currently waiting in the printer buffer.</p>
+        </div>
+        <div class="table-actions">
+          <button class="btn btn-outline btn-sm" onclick="fetchQueueState()">
+            <span class="btn-icon">🔄</span> Refresh
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        
+        <!-- Empty Queue State -->
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>Printer Queue is Currently Empty</h3>
+          <p>No print jobs are currently pending in memory. Use the form above to add a document.</p>
+          <span class="empty-subtext">Array front and rear variables are set to -1 (Underflow State).</span>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-responsive" id="table-wrapper">
+          <table class="data-table" id="jobs-table">
+            <thead>
+              <tr>
+                <th width="12%">Queue Position</th>
+                <th width="12%">Job ID</th>
+                <th width="34%">Document Name</th>
+                <th width="12%">Pages</th>
+                <th width="15%">Submitted At</th>
+                <th width="15%" class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody">
+              <!-- Dynamically populated via app.js -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Project Information / Concept Footer -->
+    <footer class="app-footer">
+      <div class="footer-box">
+        <h3>💡 How FIFO Works in This Application:</h3>
+        <p>
+          When you submit a document, the C engine calls <code>queue_enqueue()</code> which places it at <code>jobs[rear]</code>.
+          When you click "Print Next Job", the C engine calls <code>queue_dequeue()</code> which extracts <code>jobs[front]</code> 
+          (the earliest arrived document) and shifts all subsequent pending jobs forward by one position so no array slots are wasted.
+        </p>
+      </div>
+    </footer>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
